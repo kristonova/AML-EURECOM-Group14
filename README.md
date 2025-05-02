@@ -4,6 +4,7 @@ This repository serves as the submission for the Algorithmic Machine Learning Co
 
 **Group Members**:  
 - Krisostomus Nova Rahmanto  
-- Juan David Zapata Cruz  
+- Juan David Zapata Cruz
+- Kristian Håland
 
 Please refer to the included documentation and source files for a comprehensive overview of our project methodology, results, and findings.
