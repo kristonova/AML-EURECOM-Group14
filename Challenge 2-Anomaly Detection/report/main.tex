@@ -1,0 +1,124 @@
+\documentclass[a4paper,11pt,english]{article}
+
+% Basic packages
+\usepackage[utf8]{inputenc}
+\usepackage{a4wide}
+\usepackage{lmodern}
+\usepackage[T1]{fontenc}
+\usepackage{babel}
+\setlength{\parindent}{0pt} 
+\setlength{\parskip}{2ex}
+\usepackage{fixltx2e}
+\usepackage{amsmath, amssymb}
+\usepackage[pdftex, pdfborderstyle={/S/U/W 0}]{hyperref}
+\usepackage{graphicx}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{siunitx}
+\usepackage{amsmath}
+\usepackage{xcolor, colortbl}
+\usepackage{float}
+\usepackage{mathtools}
+\usepackage{mdframed}
+\usepackage{dirtytalk}
+\usepackage{minted}
+\usepackage{subfigure}
+\usepackage[strings]{underscore}
+\usepackage[toc,page]{appendix}
+\usepackage[ruled,vlined]{algorithm2e}
+\usepackage{booktabs}
+
+
+\newmdenv[
+  backgroundcolor=gray!20,
+  topline=false,
+  bottomline=false,
+  rightline=false,
+  leftline=false,
+  skipabove=\baselineskip,
+  skipbelow=\baselineskip,
+]{myframe}
+
+
+
+
+\title{Anomaly Detection in Slide Rail Machines using Autoencoders}
+\author{Group 14 \\ Juan David Zapata Cruz, Krisostomus Nova Rahmanto \\ and Kristian Håland}
+\date{\today}
+
+\begin{document}
+
+
+\maketitle
+
+\begin{abstract}
+
+% Acoustic anomaly detection plays a pivotal role in condition-based maintenance of industrial equipment.  
+% The key challenge is to identify previously unseen abnormal sounds when only recordings of healthy operation are available during training.  
+% This paper documents a replication of Task~2---Unsupervised Detection of Anomalous Sounds from the DCASE~2020 challenge for the slide-rail machine class, using a simplified dataset tailored to the AML course.  
+% The core approach is a convolutional autoencoder (CAE) trained on log-Mel spectrogram representations; anomalies are flagged via elevated reconstruction error.  
+% The proposed system attains a ROC--AUC of~0.90  on an internal hold-out test set, a substantial gain over a naïve baseline (0.81).  
+% Qualitative inspection reveals that the model is particularly sensitive to distorted or missing harmonic structures.
+We address unsupervised fault detection for slide-rail machines using the
+\textbf{MIMII} dataset released in DCASE\,2020 Task~2.
+Log–Mel spectrograms extracted from 2\,370 normal files train two
+one-class models: (i) a 1.2 M-parameter convolutional auto-encoder (CAE)
+optimised for 50 epochs with MSE, and (ii) a Deep Support Vector Data
+Description (Deep-SVDD) network trained for 10 epochs.
+
+On the 1\,101-file test split the CAE achieves
+\textbf{AUC = 0.9008} and an
+\textbf{F\textsubscript{1} = 0.896} at a reconstruction-error threshold
+of 0.12, while Deep-SVDD scores a higher
+AUC = 0.9552 but lowers precision to 0.728.
+Visual reconstructions confirm that the CAE reproduces normal signals
+faithfully and distorts anomalies, explaining its superior
+precision–recall balance.
+
+These findings show that a lightweight CAE trained solely on normal data
+can detect slide-rail anomalies with near-90 \% AUC and fewer false
+alarms than a deeper Deep-SVDD alternative, making it attractive for
+edge deployment.
+
+\end{abstract}
+
+\input{Sections/01-Introduction}
+\input{Sections/02-Data Analysis and Preperation}
+\input{Sections/03-Modelling approach}
+\input{Sections/04-Results}
+\input{Sections/05-Discussion}
+\input{Sections/06-Conclusion}
+
+
+
+
+
+
+\phantomsection
+\addcontentsline{toc}{section}{References}
+\begin{thebibliography}{99}
+
+\bibitem{purohit2019mimii}
+H. Purohit, Y. Koizumi, N. Harada, and Y. Mitsufuji, 
+``MIMII Dataset: Sound Dataset for Malfunctioning Industrial Machine Investigation and Inspection,'' 
+in \textit{Proc. IEEE Workshop on Applications of Signal Processing to Audio and Acoustics (WASPAA)}, 2019, pp. 249--253. 
+\textit{doi}: \href{https://doi.org/10.1109/WASPAA.2019.8937164}{10.1109/WASPAA.2019.8937164}.
+
+\bibitem{purohit2019improving}
+H. Purohit, K. Imoto, Y. Koizumi, N. Harada, and Y. Mitsufuji, 
+``Improving Unsupervised Anomalous Sound Detection with Auxiliary Bi-level Information,'' 
+in \textit{Proc. DCASE Workshop 2019}, New York University, NY, USA, 2019, pp. 21--25. 
+\textit{Online}: \url{https://dcase.community/documents/workshop2019/proceedings/DCASE2019Workshop_Purohit_21.pdf}
+
+\bibitem{CNN}
+    Geeksforgeeks (2025)
+    \textit{Introduction to Convolution Neural Network}.
+    Available from: \href{https://www.geeksforgeeks.org/introduction-convolution-neural-network/}{Geeksforgeeks}
+    (Fetched: 9. May 2025)
+
+\end{thebibliography}
+
+
+\end{document}
