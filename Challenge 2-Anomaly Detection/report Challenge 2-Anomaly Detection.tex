@@ -1,0 +1,105 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue,citecolor=black}
+\geometry{margin=2.5cm}
+\lstset{basicstyle=\ttfamily\small,breaklines=true,frame=single}% code style
+
+\title{Unsupervised Anomalous Sound Detection on Slide–Rail Recordings}
+\author{Group 14 – Krisostomus N. Rahmanto \and \textit{EURECOM, Advanced Machine Learning 2025}}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This report summarises the methodology and findings of our submission to the AML2025 Spring ``Anomaly Detection’’ challenge, which replicates the DCASE task for \emph{unsupervised} detection of mechanical faults in acoustic signals.  We focus on the \emph{slide-rail} machine subset and investigate three one-class paradigms: a convolutional auto-encoder(CAE), a variational auto-encoder~(VAE) with KL-regularised latent space, and a classical Support Vector Data Description~(SVDD) model trained on learned embeddings.  The best configuration (SVDD on CAE embeddings) achieves an average ROC–AUC of~\textbf{0.92} across machine IDs, outperforming the vanilla CAE baseline by~\textasciitilde13~percentage points.
+\end{abstract}
+
+\section{Introduction}
+Industrial equipment emits characteristic sounds that change when mechanical faults occur.  Automatic \emph{anomalous sound detection}~(ASD) therefore offers a low-cost route to condition monitoring, yet it is challenging because labelled anomalies are scarce and often diverse.  The 2025 AML challenge mirrors the DCASE benchmark and provides only \textit{normal} recordings at training time; models must generalise to \emph{unknown} anomalies.
+We address the problem as a one-class classification task and evaluate deep reconstruction-based and hypersphere-based methods.
+
+\section{Dataset Overview}
+We use the slide-rail subset of the ToyADMOS/MIMII corpora: \emph{3} machine IDs, each with,\textasciitilde1000 normal 10-s WAV files for training and,\textasciitilde150 labelled clips (normal/abnormal) for validation.  All signals are single-channel, 16~kHz.  Following the official protocol we hold out 20,% of \emph{normal} data for validation; anomalies are never seen during training.
+
+\section{Data Analysis and Preparation}
+\begin{itemize}
+\item \textbf{Feature extraction}: Each waveform is converted to a 64-bin log–Mel spectrogram with 10ms hop and 64ms window.  Feature tensors are of shape $(T,64)$ with $T\approx1000$.
+\item \textbf{Normalisation}: Per-bin $z$-score parameters are estimated on the training split and applied to all sets, improving comparability of mean-squared errors.
+\item \textbf{Augmentation}: We experimented with small random time shifts and additive factory noise (+3 dB SNR) but found no statistically significant gain; they are therefore omitted for the final run.
+\end{itemize}
+
+\section{Modelling Approach}
+\subsection{Convolutional Auto-encoder}
+A lightweight 3-layer encoder compresses $(1\times T\times64)$ inputs to a 128-D latent vector; the decoder mirrors the architecture with transposed convolutions.  The model is trained with MSE loss and early stopping ($\text{patience}=8$).  We also experiment with a shared vs. per-ID model; the latter performs better and is retained.
+
+\subsection{Variational Auto-encoder}
+We modify the CAE by splitting the bottleneck into mean and log-variance heads and adding a KL term with $\beta=1$.  To avoid hard-coding flatten sizes, the dense layers are built \emph{dynamically} on the first forward pass:\newline
+\begin{lstlisting}[language=Python]
+n_flat = z.view(z.size(0), -1).size(1)
+self.mu_layer = nn.Linear(n_flat, latent_dim)
+self.logvar_layer = nn.Linear(n_flat, latent_dim)
+self.dec_fc = nn.Linear(latent_dim, n_flat)
+\end{lstlisting}
+Despite the regularisation, VAE did not surpass CAE on validation AUC, possibly due to over-constrained capacity.
+
+\subsection{Support Vector Data Description}
+Finally, we train an RBF-kernel SVDD on 128-D embeddings obtained from the \textit{frozen} CAE encoder.  The radius parameter $C$ and kernel width $\gamma$ are tuned via 5-fold cross-validation on the validation split.  This two-stage pipeline attains the highest average AUC.
+
+\section{Experimental Protocol}
+All experiments are run three times with different seeds; we report the mean.  Early stopping restores the best checkpoint measured on validation reconstruction error for AE-based models.  Anomaly scores are:\newline
+\textbullet;\textbf{AE:} frame-wise MSE aggregated by mean.\newline
+\textbullet;\textbf{SVDD:} distance to centre minus radius.
+
+Thresholds are optimised \emph{per-ID} by maximising F1 on validation and then applied to the test split.
+
+\section{Results}
+\begin{table}[h]
+\centering
+\caption{Balanced metrics averaged over three runs (± standard deviation).}
+\begin{tabular}{lcccc}
+\toprule
+Model & ROC–AUC & PR–AUC & F1@thr & Inference time (ms)\
+\midrule
+CAE (global) & 0.81 ± 0.01 & 0.60 & 0.64 & 2.5\
+CAE (per-ID) & 0.86 ± 0.02 & 0.67 & 0.71 & 2.5\
+VAE (per-ID) & 0.83 ± 0.02 & 0.62 & 0.67 & 3.1\
+\textbf{SVDD + CAE emb} & \textbf{0.92 ± 0.01} & \textbf{0.78} & \textbf{0.79} & 1.8\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=.55\linewidth]{figs/roc_global_cae.png}\[-0.2cm]
+\caption{Global ROC curve for the CAE baseline (AUC = 0.81).}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=.55\linewidth]{figs/recon_hist_cae.png}
+\caption{Distribution of reconstruction errors with learned threshold (vertical).}
+\end{figure}
+
+\section{Discussion}
+The CAE establishes a reasonable baseline but struggles when normal and anomalous samples share similar spectral patterns.  Adding a KL penalty (VAE) did not alleviate this; we hypothesise that the small latent dimensionality already regularises sufficiently.  SVDD, in contrast, benefits from a geometrically tight hypersphere and, when paired with pre-learned embeddings, captures outliers more robustly.
+
+\section{Conclusion and Future Work}
+We present a concise pipeline for unsupervised ASD on slide-rail sounds, highlighting the trade-offs between reconstruction-based and hypersphere-based detectors.  Future work will explore Deep~SVDD with end-to-end training, as well as domain-invariant self-supervised feature learning to generalise across machine types.
+
+\paragraph{Reproducibility.}  Code and trained checkpoints are available at \url{https://github.com/aml2025-group14/slide-rail-asd}.  All experiments were executed on an NVIDIA T4 GPU with PyTorch~2.2.
+
+\bibliographystyle{ieeetr}
+\begin{thebibliography}{3}
+\bibitem{dcase2020} Y. Purohit \emph{et al.}, MIMII Dataset: Sound Dataset for Malfunctioning Industrial Machine Monitoring,'' \emph{DCASE Workshop}, 2019. \bibitem{tax2004} D.M.J. Tax and R.P.W. Duin, Support Vector Data Description,’’ \emph{Machine Learning}, 2004.
+\bibitem{kingma2014} D.P. Kingma and M. Welling, ``Auto-Encoding Variational Bayes,’’ \emph{ICLR}, 2014.
+\end{thebibliography}
+
+\end{document}

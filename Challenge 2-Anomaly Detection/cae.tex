@@ -1,0 +1,109 @@
+% ==================== file: cae_architecture.tex ====================
+\documentclass{article}
+
+% ---------- Packages ----------
+\usepackage[margin=2.5cm]{geometry}   % atur margin dokumen
+\usepackage{amsmath, amssymb}         % simbol matematika
+\usepackage[ruled,vlined]{algorithm2e} % lingkungan algoritma bergaya
+
+\begin{document}
+
+\begin{algorithm}[H]
+\caption{Convolutional Autoencoder with Constant Padding}
+\KwData{Log--Mel spectrogram $\mathbf X \in \mathbb{R}^{1 \times 64 \times 313}$}
+\KwResult{Reconstructed spectrogram $\hat{\mathbf X}$}
+
+% -------------------------------------------------
+% Hyper-parameter
+\SetKwComment{tcp}{//}{}
+\SetKwProg{Fn}{Function}{}{}
+\DontPrintSemicolon
+
+\tcp*[l]{\textbf{Hyper-parameter}}
+$\textit{latent\_dim} \leftarrow 256$\;
+
+\BlankLine
+% -------------------------------------------------
+% Encoder
+\tcp*[l]{\textbf{Encoder}}
+$\mathbf H \leftarrow \mathrm{Conv2D}(1,16,3,1)\!\circ\!\mathrm{ReLU}\!\circ\!\mathrm{MaxPool2D}(2)(\mathbf X)$\;
+$\mathbf H \leftarrow \mathrm{Conv2D}(16,32,3,1)\!\circ\!\mathrm{ReLU}\!\circ\!\mathrm{MaxPool2D}(2)(\mathbf H)$\;
+$\mathbf H \leftarrow \mathrm{Conv2D}(32,64,3,1)\!\circ\!\mathrm{ReLU}\!\circ\!\mathrm{MaxPool2D}(2)(\mathbf H)$\tcp*{output size $64\times8\times39$}
+
+\BlankLine
+% -------------------------------------------------
+% Bottleneck
+\tcp*[l]{\textbf{Fully-connected bottleneck}}
+$\mathbf z \leftarrow \mathrm{Linear}(64\!\cdot\!8\!\cdot\!39,\ \textit{latent\_dim})\!\circ\!\mathrm{Flatten}(\mathbf H)$\;
+
+\BlankLine
+% -------------------------------------------------
+% Inverse bottleneck
+\tcp*[l]{\textbf{Decoder (inverse FC)}}
+$\mathbf H' \leftarrow \mathrm{Unflatten}\!\circ\!\mathrm{Linear}(\textit{latent\_dim},64\!\cdot\!8\!\cdot\!39)(\mathbf z)$\;
+
+\BlankLine
+% -------------------------------------------------
+% Decoder
+\tcp*[l]{\textbf{Decoder (deconvolutions)}}
+$\mathbf H' \leftarrow \mathrm{ConvTr2D}(64,32,4,2,1)\!\circ\!\mathrm{ReLU}(\mathbf H')$\;
+$\mathbf H' \leftarrow \mathrm{ConvTr2D}(32,16,4,2,1)\!\circ\!\mathrm{ReLU}(\mathbf H')$\;
+$\hat{\mathbf X} \leftarrow \mathrm{ConvTr2D}(16,1,4,2,1)(\mathbf H')$\;
+
+\BlankLine
+% -------------------------------------------------
+% Padding
+\tcp*[l]{\textbf{Final padding to width $313$}}
+$\hat{\mathbf X} \leftarrow \mathrm{ConstantPad2D}((0,1,0,0),\,0)(\hat{\mathbf X})$\;
+
+\end{algorithm}
+
+% ---------- Algorithm: SVDDNet Encoder ----------
+\begin{algorithm}[H]
+\caption{SVDDNet\,—\,Convolutional Encoder for Deep-SVDD}
+\KwData{Mini-batch of log–Mel spectrograms $\mathbf X \in \mathbb R^{B\times1\times H\times W}$}
+\KwResult{Embedding matrix $\mathbf Z \in \mathbb R^{B\times \textit{emb\_dim}}$}
+
+\SetKwComment{tcp}{//}{}
+\SetKwProg{Fn}{Function}{}{}        % ← inisialisasi macro \Fn
+\DontPrintSemicolon
+
+% -------------------------------------------------
+\tcp*[l]{\textbf{Hyper-parameter}}
+\textit{emb\_dim} $\leftarrow 128$\;
+
+\vspace{0.3em}
+% -------------------------------------------------
+\tcp*[l]{\textbf{Constructor} (\_init\_)}
+\textbf{define} $\mathrm{conv}$ as:\;
+\Indp
+$\mathrm{Conv2D}(1,16,3,\,\text{pad}=1)\!\rightarrow\!\mathrm{ReLU}\!\rightarrow\!\mathrm{MaxPool2D}(2)$\;
+$\mathrm{Conv2D}(16,32,3,\,\text{pad}=1)\!\rightarrow\!\mathrm{ReLU}\!\rightarrow\!\mathrm{MaxPool2D}(2)$\;
+$\mathrm{Flatten}$\;
+\Indm
+
+\BlankLine
+% ---------- dynamic output shape ----------
+\tcp{Compute the flattened dimension dynamically}
+$\mathbf X_{\text{dummy}} \leftarrow$ one batch from \textit{train\_loader}\;
+$\mathbf h \leftarrow \mathrm{conv}(\mathbf X_{\text{dummy}})$\;
+$\textit{flat\_dim} \leftarrow \operatorname{dim}(\mathbf h,\,1)$\;
+
+\BlankLine
+\textbf{define} $\mathrm{fc} \leftarrow \mathrm{Linear}(\textit{flat\_dim},\,\textit{emb\_dim})$\;
+
+\BlankLine
+% -------------------------------------------------
+\Fn{\textnormal{\textbf{forward}}($\mathbf X$)}{
+    $\mathbf h \leftarrow \mathrm{conv}(\mathbf X)$\;
+    $\mathbf Z \leftarrow \mathrm{fc}(\mathbf h)$\;
+    \Return $\mathbf Z$\;
+}
+
+\end{algorithm}
+
+
+
+\end{document}
+% ==================== end of file ====================
+
